@@ -47,6 +47,7 @@ typedef struct {
 
     ngx_flag_t                   transparency;
     ngx_flag_t                   interlace;
+    ngx_flag_t                   upscale;
     ngx_str_t                    watermark;
     ngx_str_t                    watermark_position;
 
@@ -152,6 +153,13 @@ static ngx_command_t  ngx_http_image_filter_commands[] = {
       ngx_conf_set_flag_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_image_filter_conf_t, interlace),
+      NULL },
+
+   { ngx_string("image_filter_upscale"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_image_filter_conf_t, upscale),
       NULL },
 
     { ngx_string("image_filter_buffer"),
@@ -569,8 +577,9 @@ ngx_http_image_process(ngx_http_request_t *r)
     }
 
     if (rc == NGX_OK
-        && ctx->width <= ctx->max_width
-        && ctx->height <= ctx->max_height
+        && (ctx->width <= ctx->max_width
+            && ctx->height <= ctx->max_height
+            && !conf->upscale)
         && ctx->angle == 0
         && !ctx->force)
     {
@@ -798,8 +807,9 @@ ngx_http_image_resize(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
 
     if (!ctx->force
         && ctx->angle == 0
-        && (ngx_uint_t) sx <= ctx->max_width
-        && (ngx_uint_t) sy <= ctx->max_height)
+        && ((ngx_uint_t) sx <= ctx->max_width
+            && (ngx_uint_t) sy <= ctx->max_height
+            && !conf->upscale))
     {
         gdImageDestroy(src);
         return ngx_http_image_asis(r, ctx);
@@ -835,7 +845,7 @@ transparent:
 
     if (conf->filter == NGX_HTTP_IMAGE_RESIZE) {
 
-        if ((ngx_uint_t) dx > ctx->max_width) {
+        if ((ngx_uint_t) dx > ctx->max_width || conf->upscale) {
             dy = dy * ctx->max_width / dx;
             dy = dy ? dy : 1;
             dx = ctx->max_width;
@@ -862,7 +872,7 @@ transparent:
         resize = 0;
 
         if ((double) dx / dy < (double) ctx->max_width / ctx->max_height) {
-            if ((ngx_uint_t) dx > ctx->max_width) {
+            if ((ngx_uint_t) dx > ctx->max_width || conf->upscale) {
                 dy = dy * ctx->max_width / dx;
                 dy = dy ? dy : 1;
                 dx = ctx->max_width;
@@ -870,7 +880,7 @@ transparent:
             }
 
         } else {
-            if ((ngx_uint_t) dy > ctx->max_height) {
+            if ((ngx_uint_t) dy > ctx->max_height || conf->upscale) {
                 dx = dx * ctx->max_height / dy;
                 dx = dx ? dx : 1;
                 dy = ctx->max_height;
@@ -1277,6 +1287,7 @@ ngx_http_image_filter_create_conf(ngx_conf_t *cf)
     conf->sharpen = NGX_CONF_UNSET_UINT;
     conf->transparency = NGX_CONF_UNSET;
     conf->interlace = NGX_CONF_UNSET;
+    conf->upscale = NGX_CONF_UNSET;
     conf->buffer_size = NGX_CONF_UNSET_SIZE;
 
     return conf;
@@ -1326,6 +1337,8 @@ ngx_http_image_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_value(conf->transparency, prev->transparency, 1);
 
     ngx_conf_merge_value(conf->interlace, prev->interlace, 0);
+
+    ngx_conf_merge_value(conf->upscale, prev->upscale, 0);
 
     ngx_conf_merge_size_value(conf->buffer_size, prev->buffer_size,
                               1 * 1024 * 1024);
