@@ -1,5 +1,5 @@
 diff --git a/src/http/modules/ngx_http_image_filter_module.c b/src/http/modules/ngx_http_image_filter_module.c
-index bd7a309..67662b4 100644
+index dbec5d8..7b1ede5 100644
 --- a/src/http/modules/ngx_http_image_filter_module.c
 +++ b/src/http/modules/ngx_http_image_filter_module.c
 @@ -18,6 +18,7 @@
@@ -10,7 +10,7 @@ index bd7a309..67662b4 100644
  
  
  #define NGX_HTTP_IMAGE_START     0
-@@ -46,6 +47,9 @@ typedef struct {
+@@ -48,6 +49,9 @@ typedef struct {
  
      ngx_flag_t                   transparency;
      ngx_flag_t                   interlace;
@@ -20,11 +20,11 @@ index bd7a309..67662b4 100644
  
      ngx_http_complex_value_t    *wcv;
      ngx_http_complex_value_t    *hcv;
-@@ -151,6 +155,13 @@ static ngx_command_t  ngx_http_image_filter_commands[] = {
+@@ -163,6 +167,13 @@ static ngx_command_t  ngx_http_image_filter_commands[] = {
        offsetof(ngx_http_image_filter_conf_t, interlace),
        NULL },
  
-+   { ngx_string("image_filter_upscale"),
++    { ngx_string("image_filter_upscale"),
 +      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
 +      ngx_conf_set_flag_slot,
 +      NGX_HTTP_LOC_CONF_OFFSET,
@@ -34,7 +34,7 @@ index bd7a309..67662b4 100644
      { ngx_string("image_filter_buffer"),
        NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
        ngx_conf_set_size_slot,
-@@ -158,6 +169,20 @@ static ngx_command_t  ngx_http_image_filter_commands[] = {
+@@ -170,6 +181,20 @@ static ngx_command_t  ngx_http_image_filter_commands[] = {
        offsetof(ngx_http_image_filter_conf_t, buffer_size),
        NULL },
  
@@ -55,7 +55,7 @@ index bd7a309..67662b4 100644
        ngx_null_command
  };
  
-@@ -531,6 +556,15 @@ ngx_http_image_process(ngx_http_request_t *r)
+@@ -551,6 +576,15 @@ ngx_http_image_process(ngx_http_request_t *r)
          return ngx_http_image_resize(r, ctx);
      }
  
@@ -71,7 +71,7 @@ index bd7a309..67662b4 100644
      ctx->max_width = ngx_http_image_filter_get_value(r, conf->wcv, conf->width);
      if (ctx->max_width == 0) {
          return NULL;
-@@ -543,8 +577,9 @@ ngx_http_image_process(ngx_http_request_t *r)
+@@ -563,8 +597,9 @@ ngx_http_image_process(ngx_http_request_t *r)
      }
  
      if (rc == NGX_OK
@@ -83,7 +83,7 @@ index bd7a309..67662b4 100644
          && ctx->angle == 0
          && !ctx->force)
      {
-@@ -772,8 +807,9 @@ ngx_http_image_resize(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
+@@ -842,8 +877,9 @@ ngx_http_image_resize(ngx_http_request_t *r, ngx_http_image_filter_ctx_t *ctx)
  
      if (!ctx->force
          && ctx->angle == 0
@@ -95,7 +95,7 @@ index bd7a309..67662b4 100644
      {
          gdImageDestroy(src);
          return ngx_http_image_asis(r, ctx);
-@@ -809,7 +845,7 @@ transparent:
+@@ -879,7 +915,7 @@ transparent:
  
      if (conf->filter == NGX_HTTP_IMAGE_RESIZE) {
  
@@ -104,7 +104,7 @@ index bd7a309..67662b4 100644
              dy = dy * ctx->max_width / dx;
              dy = dy ? dy : 1;
              dx = ctx->max_width;
-@@ -827,12 +863,16 @@ transparent:
+@@ -897,12 +933,16 @@ transparent:
  
          resize = 0;
  
@@ -122,7 +122,7 @@ index bd7a309..67662b4 100644
                  dy = dy * ctx->max_width / dx;
                  dy = dy ? dy : 1;
                  dx = ctx->max_width;
-@@ -840,7 +880,7 @@ transparent:
+@@ -910,7 +950,7 @@ transparent:
              }
  
          } else {
@@ -131,7 +131,7 @@ index bd7a309..67662b4 100644
                  dx = dx * ctx->max_height / dy;
                  dx = dx ? dx : 1;
                  dy = ctx->max_height;
-@@ -972,6 +1012,49 @@ transparent:
+@@ -1042,6 +1082,49 @@ transparent:
          gdImageColorTransparent(dst, gdImageColorExact(dst, red, green, blue));
      }
  
@@ -181,7 +181,7 @@ index bd7a309..67662b4 100644
      sharpen = ngx_http_image_filter_get_value(r, conf->shcv, conf->sharpen);
      if (sharpen > 0) {
          gdImageSharpen(dst, sharpen);
-@@ -1204,6 +1287,7 @@ ngx_http_image_filter_create_conf(ngx_conf_t *cf)
+@@ -1301,6 +1384,7 @@ ngx_http_image_filter_create_conf(ngx_conf_t *cf)
      conf->sharpen = NGX_CONF_UNSET_UINT;
      conf->transparency = NGX_CONF_UNSET;
      conf->interlace = NGX_CONF_UNSET;
@@ -189,7 +189,7 @@ index bd7a309..67662b4 100644
      conf->buffer_size = NGX_CONF_UNSET_SIZE;
  
      return conf;
-@@ -1254,9 +1338,15 @@ ngx_http_image_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
+@@ -1361,9 +1445,15 @@ ngx_http_image_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
  
      ngx_conf_merge_value(conf->interlace, prev->interlace, 0);
  
@@ -205,7 +205,7 @@ index bd7a309..67662b4 100644
      return NGX_CONF_OK;
  }
  
-@@ -1332,11 +1422,23 @@ ngx_http_image_filter(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+@@ -1439,11 +1529,23 @@ ngx_http_image_filter(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
  
              return NGX_CONF_OK;
  
