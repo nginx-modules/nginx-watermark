@@ -46,6 +46,7 @@ typedef struct {
     ngx_uint_t                   jpeg_quality;
     ngx_uint_t                   webp_quality;
     ngx_uint_t                   sharpen;
+    ngx_uint_t                   margin;
 
     ngx_flag_t                   transparency;
     ngx_flag_t                   interlace;
@@ -193,6 +194,13 @@ static ngx_command_t  ngx_http_image_filter_commands[] = {
       ngx_conf_set_str_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_image_filter_conf_t, watermark_position),
+      NULL },
+
+    { ngx_string("image_filter_watermark_margin"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_image_filter_conf_t, margin),
       NULL },
 
       ngx_null_command
@@ -585,6 +593,7 @@ ngx_http_image_process(ngx_http_request_t *r)
         return ngx_http_image_resize(r, ctx);
     }
 
+    /* checks sizes before proceeding to crop/resize */
     ctx->max_width = ngx_http_image_filter_get_value(r, conf->wcv, conf->width);
     if (ctx->max_width == 0) {
         return NULL;
@@ -1096,16 +1105,16 @@ transparent:
                 watermark_mix = gdImageCreateTrueColor(watermark->sx, watermark->sy);
 
                 if (ngx_strcmp(conf->watermark_position.data, "bottom-right") == 0) {
-                    wdx = dx - watermark->sx - 10;
-                    wdy = dy - watermark->sy - 10;
+                    wdx = dx - watermark->sx - conf->margin;
+                    wdy = dy - watermark->sy - conf->margin;
                 } else if (ngx_strcmp(conf->watermark_position.data, "top-left") == 0) {
-                    wdx = wdy = 10;
+                    wdx = wdy = conf->margin;
                 } else if (ngx_strcmp(conf->watermark_position.data, "top-right") == 0) {
-                    wdx = dx - watermark->sx - 10;
-                    wdy = 10;
+                    wdx = dx - watermark->sx - conf->margin;
+                    wdy = conf->margin;
                 } else if (ngx_strcmp(conf->watermark_position.data, "bottom-left") == 0) {
-                    wdx = 10;
-                    wdy = dy - watermark->sy - 10;
+                    wdx = conf->margin;
+                    wdy = dy - watermark->sy - conf->margin;
                 } else if (ngx_strcmp(conf->watermark_position.data, "center") == 0) {
                     wdx = dx / 2 - watermark->sx / 2;
                     wdy = dy / 2 - watermark->sy / 2;
@@ -1382,6 +1391,7 @@ ngx_http_image_filter_create_conf(ngx_conf_t *cf)
     conf->jpeg_quality = NGX_CONF_UNSET_UINT;
     conf->webp_quality = NGX_CONF_UNSET_UINT;
     conf->sharpen = NGX_CONF_UNSET_UINT;
+    conf->margin = NGX_CONF_UNSET_UINT;
     conf->transparency = NGX_CONF_UNSET;
     conf->interlace = NGX_CONF_UNSET;
     conf->upscale = NGX_CONF_UNSET;
@@ -1446,6 +1456,9 @@ ngx_http_image_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_value(conf->interlace, prev->interlace, 0);
 
     ngx_conf_merge_value(conf->upscale, prev->upscale, 0);
+
+    /* 10x10 is default watermark margin */
+    ngx_conf_merge_value(conf->margin, prev->margin, 10);
 
     ngx_conf_merge_size_value(conf->buffer_size, prev->buffer_size,
                               1 * 1024 * 1024);
