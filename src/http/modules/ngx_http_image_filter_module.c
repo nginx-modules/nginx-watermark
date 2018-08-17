@@ -1497,6 +1497,9 @@ ngx_http_image_filter(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         } else if (ngx_strcmp(value[i].data, "size") == 0) {
             imcf->filter = NGX_HTTP_IMAGE_SIZE;
 
+        } else if (ngx_strcmp(value[i].data, "watermark") == 0) {
+            imcf->filter = NGX_HTTP_IMAGE_WATERMARK;
+
         } else {
             goto failed;
         }

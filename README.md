@@ -3,7 +3,9 @@
 ## Usage:
 
 ```
-image_filter watermark /path/to/watermark.png [ bottom-right (default) | top-left | top-right | bottom-left | center ];
+image_filter watermark [/path/to/watermark.png [ bottom-right (default) | top-left | top-right | bottom-left | center ];
+image_filter_watermark /path/to/watermark.png;
+image_filter_watermark_position bottom-right;
 image_filter_watermark_margin 0;
 ```
 
