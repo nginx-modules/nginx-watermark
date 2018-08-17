@@ -1091,7 +1091,8 @@ transparent:
         gdImageColorTransparent(dst, gdImageColorExact(dst, red, green, blue));
     }
 
-    if (conf->filter == NGX_HTTP_IMAGE_WATERMARK && conf->watermark.data) {
+    if (conf->watermark.data) {
+        /* TODO (maybe): load watermark on nginx start, not on each request? */
         FILE *watermark_file = fopen((const char *)conf->watermark.data, "r");
 
         if (watermark_file) {

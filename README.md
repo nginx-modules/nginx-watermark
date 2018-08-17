@@ -11,6 +11,7 @@ Differences from original patch (https://github.com/vdvm/nginx-watermark):
 * bumped source version to 1.12.0 (WebP support was added)
 * image upscaling in crop/resize mode is allowed (disallowed in upstream)
 * added watermark margin customization (10px by default)
+* watermark is added after crop/resize, not instead of
 
 Tested with nginx 1.12.0
 
