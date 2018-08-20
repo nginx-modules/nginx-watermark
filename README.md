@@ -7,12 +7,14 @@ image_filter watermark [/path/to/watermark.png [ bottom-right (default) | top-le
 image_filter_watermark /path/to/watermark.png;
 image_filter_watermark_position bottom-right;
 image_filter_watermark_margin 0;
+image_filter_watermark_alpha 100;
 ```
 
 Differences from original patch (https://github.com/vdvm/nginx-watermark):
 * bumped source version to 1.12.0 (WebP support was added)
 * image upscaling in crop/resize mode is allowed (disallowed in upstream)
 * added watermark margin customization (10px by default)
+* added watermark transparency customization (75 by default)
 * watermark is added after crop/resize, not instead of
 
 Tested with nginx 1.12.0

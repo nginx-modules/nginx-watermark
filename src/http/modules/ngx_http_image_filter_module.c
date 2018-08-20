@@ -47,6 +47,7 @@ typedef struct {
     ngx_uint_t                   webp_quality;
     ngx_uint_t                   sharpen;
     ngx_uint_t                   margin;
+    ngx_uint_t                   alpha;
 
     ngx_flag_t                   transparency;
     ngx_flag_t                   interlace;
@@ -201,6 +202,13 @@ static ngx_command_t  ngx_http_image_filter_commands[] = {
       ngx_conf_set_num_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_image_filter_conf_t, margin),
+      NULL },
+
+    { ngx_string("image_filter_watermark_alpha"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_image_filter_conf_t, alpha),
       NULL },
 
       ngx_null_command
@@ -1123,7 +1131,7 @@ transparent:
 
                 gdImageCopy(watermark_mix, dst, 0, 0, wdx, wdy, watermark->sx, watermark->sy);
                 gdImageCopy(watermark_mix, watermark, 0, 0, 0, 0, watermark->sx, watermark->sy);
-                gdImageCopyMerge(dst, watermark_mix, wdx, wdy, 0, 0, watermark->sx, watermark->sy, 75);
+                gdImageCopyMerge(dst, watermark_mix, wdx, wdy, 0, 0, watermark->sx, watermark->sy, conf->alpha);
                 gdImageDestroy(watermark);
                 gdImageDestroy(watermark_mix);
 
@@ -1393,6 +1401,7 @@ ngx_http_image_filter_create_conf(ngx_conf_t *cf)
     conf->webp_quality = NGX_CONF_UNSET_UINT;
     conf->sharpen = NGX_CONF_UNSET_UINT;
     conf->margin = NGX_CONF_UNSET_UINT;
+    conf->alpha = NGX_CONF_UNSET_UINT;
     conf->transparency = NGX_CONF_UNSET;
     conf->interlace = NGX_CONF_UNSET;
     conf->upscale = NGX_CONF_UNSET;
@@ -1460,6 +1469,9 @@ ngx_http_image_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 
     /* 10x10 is default watermark margin */
     ngx_conf_merge_value(conf->margin, prev->margin, 10);
+
+    /* 75 is default watermark transparency */
+    ngx_conf_merge_value(conf->alpha, prev->alpha, 75);
 
     ngx_conf_merge_size_value(conf->buffer_size, prev->buffer_size,
                               1 * 1024 * 1024);
