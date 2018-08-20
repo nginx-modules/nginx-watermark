@@ -1468,10 +1468,10 @@ ngx_http_image_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_value(conf->upscale, prev->upscale, 0);
 
     /* 10x10 is default watermark margin */
-    ngx_conf_merge_value(conf->margin, prev->margin, 10);
+    ngx_conf_merge_uint_value(conf->margin, prev->margin, 10);
 
     /* 75 is default watermark transparency */
-    ngx_conf_merge_value(conf->alpha, prev->alpha, 75);
+    ngx_conf_merge_uint_value(conf->alpha, prev->alpha, 75);
 
     ngx_conf_merge_size_value(conf->buffer_size, prev->buffer_size,
                               1 * 1024 * 1024);
