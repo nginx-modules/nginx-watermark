@@ -1107,6 +1107,10 @@ transparent:
             gdImagePtr watermark, watermark_mix;
             ngx_int_t wdx = 0, wdy = 0;
 
+            /* dx and dy are not updated after crop */
+            dx = gdImageSX(dst);
+            dy = gdImageSY(dst);
+
             watermark = gdImageCreateFromPng(watermark_file);
             fclose(watermark_file);
 
