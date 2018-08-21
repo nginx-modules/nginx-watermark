@@ -61,6 +61,7 @@ typedef struct {
     ngx_http_complex_value_t    *jqcv;
     ngx_http_complex_value_t    *wqcv;
     ngx_http_complex_value_t    *shcv;
+    ngx_http_complex_value_t    *wacv;
 
     size_t                       buffer_size;
 } ngx_http_image_filter_conf_t;
@@ -121,6 +122,8 @@ static char *ngx_http_image_filter_jpeg_quality(ngx_conf_t *cf,
 static char *ngx_http_image_filter_webp_quality(ngx_conf_t *cf,
     ngx_command_t *cmd, void *conf);
 static char *ngx_http_image_filter_sharpen(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+static char *ngx_http_image_filter_watermark_alpha(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 static ngx_int_t ngx_http_image_filter_init(ngx_conf_t *cf);
 
@@ -206,9 +209,9 @@ static ngx_command_t  ngx_http_image_filter_commands[] = {
 
     { ngx_string("image_filter_watermark_alpha"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_num_slot,
+      ngx_http_image_filter_watermark_alpha,
       NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_image_filter_conf_t, alpha),
+      0,
       NULL },
 
       ngx_null_command
@@ -1099,8 +1102,12 @@ transparent:
         gdImageColorTransparent(dst, gdImageColorExact(dst, red, green, blue));
     }
 
+    sharpen = ngx_http_image_filter_get_value(r, conf->shcv, conf->sharpen);
+    if (sharpen > 0) {
+        gdImageSharpen(dst, sharpen);
+    }
+
     if (conf->watermark.data) {
-        /* TODO (maybe): load watermark on nginx start, not on each request? */
         FILE *watermark_file = fopen((const char *)conf->watermark.data, "r");
 
         if (watermark_file) {
@@ -1115,6 +1122,7 @@ transparent:
             fclose(watermark_file);
 
             if(watermark != NULL) {
+                ngx_uint_t alpha;
                 watermark_mix = gdImageCreateTrueColor(watermark->sx, watermark->sy);
 
                 if (ngx_strcmp(conf->watermark_position.data, "bottom-right") == 0) {
@@ -1135,7 +1143,8 @@ transparent:
 
                 gdImageCopy(watermark_mix, dst, 0, 0, wdx, wdy, watermark->sx, watermark->sy);
                 gdImageCopy(watermark_mix, watermark, 0, 0, 0, 0, watermark->sx, watermark->sy);
-                gdImageCopyMerge(dst, watermark_mix, wdx, wdy, 0, 0, watermark->sx, watermark->sy, conf->alpha);
+                alpha = ngx_http_image_filter_get_value(r, conf->wacv, conf->alpha);
+                gdImageCopyMerge(dst, watermark_mix, wdx, wdy, 0, 0, watermark->sx, watermark->sy, alpha);
                 gdImageDestroy(watermark);
                 gdImageDestroy(watermark_mix);
 
@@ -1145,11 +1154,6 @@ transparent:
 
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "watermark file '%s' not found", conf->watermark.data);
         }
-    }
-
-    sharpen = ngx_http_image_filter_get_value(r, conf->shcv, conf->sharpen);
-    if (sharpen > 0) {
-        gdImageSharpen(dst, sharpen);
     }
 
     gdImageInterlace(dst, (int) conf->interlace);
@@ -1474,8 +1478,15 @@ ngx_http_image_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     /* 10x10 is default watermark margin */
     ngx_conf_merge_uint_value(conf->margin, prev->margin, 10);
 
-    /* 75 is default watermark transparency */
-    ngx_conf_merge_uint_value(conf->alpha, prev->alpha, 75);
+    if (conf->alpha == NGX_CONF_UNSET_UINT) {
+
+        /* 75 is default watermark transparency */
+        ngx_conf_merge_uint_value(conf->alpha, prev->alpha, 75);
+
+        if (conf->wacv == NULL) {
+            conf->wacv = prev->wacv;
+        }
+    }
 
     ngx_conf_merge_size_value(conf->buffer_size, prev->buffer_size,
                               1 * 1024 * 1024);
@@ -1514,7 +1525,11 @@ ngx_http_image_filter(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             imcf->filter = NGX_HTTP_IMAGE_SIZE;
 
         } else if (ngx_strcmp(value[i].data, "watermark") == 0) {
-            imcf->filter = NGX_HTTP_IMAGE_WATERMARK;
+            if (imcf->filter != NGX_HTTP_IMAGE_RESIZE
+                && imcf->filter != NGX_HTTP_IMAGE_CROP)
+            {
+                imcf->filter = NGX_HTTP_IMAGE_WATERMARK;
+            }
 
         } else {
             goto failed;
@@ -1563,7 +1578,11 @@ ngx_http_image_filter(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             return NGX_CONF_OK;
 
         } else if (ngx_strcmp(value[i].data, "watermark") == 0) {
-            imcf->filter = NGX_HTTP_IMAGE_WATERMARK;
+            if (imcf->filter != NGX_HTTP_IMAGE_RESIZE
+                && imcf->filter != NGX_HTTP_IMAGE_CROP)
+            {
+                imcf->filter = NGX_HTTP_IMAGE_WATERMARK;
+            }
             imcf->watermark = value[2];
             return NGX_CONF_OK;
 
@@ -1573,7 +1592,11 @@ ngx_http_image_filter(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     if ((ngx_strcmp(value[i].data, "watermark") == 0) && cf->args->nelts == 4) {
-        imcf->filter = NGX_HTTP_IMAGE_WATERMARK;
+        if (imcf->filter != NGX_HTTP_IMAGE_RESIZE
+            && imcf->filter != NGX_HTTP_IMAGE_CROP)
+        {
+            imcf->filter = NGX_HTTP_IMAGE_WATERMARK;
+        }
         imcf->watermark = value[2];
         imcf->watermark_position = value[3];
         return NGX_CONF_OK;
@@ -1791,6 +1814,53 @@ ngx_http_image_filter_sharpen(ngx_conf_t *cf, ngx_command_t *cmd,
         }
 
         *imcf->shcv = cv;
+    }
+
+    return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_http_image_filter_watermark_alpha(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf)
+{
+    ngx_http_image_filter_conf_t *imcf = conf;
+
+    ngx_str_t                         *value;
+    ngx_int_t                          n;
+    ngx_http_complex_value_t           cv;
+    ngx_http_compile_complex_value_t   ccv;
+
+    value = cf->args->elts;
+
+    ngx_memzero(&ccv, sizeof(ngx_http_compile_complex_value_t));
+
+    ccv.cf = cf;
+    ccv.value = &value[1];
+    ccv.complex_value = &cv;
+
+    if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    if (cv.lengths == NULL) {
+        n = ngx_http_image_filter_value(&value[1]);
+
+        if (n < 0 || n > 100) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "invalid value \"%V\"", &value[1]);
+            return NGX_CONF_ERROR;
+        }
+
+        imcf->alpha = (ngx_uint_t) n;
+
+    } else {
+        imcf->wacv = ngx_palloc(cf->pool, sizeof(ngx_http_complex_value_t));
+        if (imcf->wacv == NULL) {
+            return NGX_CONF_ERROR;
+        }
+
+        *imcf->wacv = cv;
     }
 
     return NGX_CONF_OK;
